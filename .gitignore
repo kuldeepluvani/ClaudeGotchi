@@ -1,4 +1,5 @@
 state.json
 history.jsonl
 config.json
+creature.json
 *.tmp

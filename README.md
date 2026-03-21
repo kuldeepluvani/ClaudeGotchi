@@ -1,8 +1,69 @@
 # Claude Breath
 
-A **smart wellness plugin** for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that understands *how* you work, not just how long.
+A **smart wellness plugin** for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with a virtual creature that thrives when you code healthy and dies when you don't.
 
 **Near-zero token cost.** All intelligence runs in bash — Claude only hears about it when you actually need to stop.
+
+## Your Creature
+
+A Tamagotchi-style companion lives in your statusline. Take breaks, it thrives. Overwork, it dies.
+
+```
+[1h32m | 27p ☕1 | ☀️ 92 | Luna 🐸😊 85hp 45💎]     ← Happy frog
+[2h30m | 58p ⚡22 | 🌀 45 | 🐛😵 8hp 12💎]           ← Creature dying
+[0h10m | 3p | ☀️ 100 | 👻2]                           ← Ghost phase
+[0h05m | 2p | ☀️ 100 | 🥚 0💎]                        ← New egg after rebirth
+```
+
+### Evolution (permanent, earned through XP)
+
+| Stage | Dragon | Bird | Plant | Deep Sea | XP |
+|:---|:---|:---|:---|:---|:---|
+| Egg | 🥚 | 🥚 | 🥚 | 🥚 | 0 |
+| Baby | 🐛 | 🐣 | 🌱 | 🫧 | 50 |
+| Teen | 🦎 | 🐥 | 🌿 | 🐡 | 300 |
+| Adult | 🐲 | 🦅 | 🌳 | 🐙 | 1000 |
+| Legendary | 🐉 | 🔱 | 🌲 | 🌊 | 3000 |
+
+Species is randomly assigned at hatch. XP is never lost — only death resets it.
+
+### Moods (based on HP)
+
+| HP | Mood | Your creature... |
+|:---|:---|:---|
+| 80-100 | 😊 Thriving | does happy dances, glows with energy |
+| 60-79 | 😌 Content | nods approvingly, keeps pace |
+| 40-59 | 😟 Hungry | tugs at your sleeve, whimpers |
+| 20-39 | 🤒 Sick | shivers, can barely stand |
+| 1-19 | 😵 Critical | fading, begging you to stop |
+| 0 | 👻 Dead | haunts your statusline |
+
+### Death & Rebirth
+
+When HP hits 0, your creature becomes a ghost (👻). You must complete **3 consecutive healthy sessions** (score ≥ 80) for it to pass on. It's logged to the **Hall of Legends** with its full life story. Then a new egg appears — coins carry over, XP resets, new species.
+
+**Near-death saves:** If your creature is at 1-5 HP and your next session is healthy, it gets a +20 HP "second wind" and the save is recorded as a badge of honor.
+
+### Breath Coins (💎)
+
+Earn coins through healthy behavior, spend them in the shop:
+
+**Earning:**
+| Action | Coins |
+|:---|:---|
+| Healthy session (score ≥ 80) | +10 |
+| Break taken | +5 |
+| Zero frustration | +5 |
+| Streak day | +3 |
+| Evolution milestone | +50 |
+
+**Shop:**
+| Item | Cost | Effect |
+|:---|:---|:---|
+| Feed | 15💎 | +20 HP |
+| Shield | 30💎 | Blocks 1 bad session |
+| Revive | 50💎 | Skip ghost phase |
+| Name | 10💎 | Name your creature |
 
 ## What makes it smart
 
@@ -16,6 +77,7 @@ A **smart wellness plugin** for [Claude Code](https://docs.anthropic.com/en/docs
 | **Self-healing breaks** | Real breaks fully reset the session — timer, density, score |
 | **Message variety** | 60+ contextual messages — never the same nudge twice |
 | **Time awareness** | Nudges earlier during off-hours and weekends |
+| **Creature system** | Tamagotchi companion with evolution, death, coins, and shop |
 
 ## What it costs
 
@@ -219,11 +281,13 @@ claude-breath/
 │   └── hooks.json           # Auto-registers UserPromptSubmit hook
 ├── scripts/
 │   ├── breath-hook.sh       # Core intelligence engine
+│   ├── breath-creature.sh   # Creature lifecycle, HP, XP, shop, death
 │   ├── breath-status.sh     # Enhanced statusline segment
 │   ├── breath-report.sh     # Wellness intelligence report
 │   └── breath-messages.sh   # Contextual message pool (60+ messages)
 ├── tests/
 │   ├── test-hook.sh         # 52 assertions
+│   ├── test-creature.sh     # 70 assertions
 │   └── test-status.sh       # 10 assertions
 ├── .gitignore
 ├── LICENSE
@@ -233,8 +297,9 @@ claude-breath/
 ## Tests
 
 ```bash
-bash tests/test-hook.sh      # 52 assertions
-bash tests/test-status.sh    # 10 assertions
+bash tests/test-hook.sh       # 52 assertions
+bash tests/test-creature.sh   # 70 assertions
+bash tests/test-status.sh     # 10 assertions
 ```
 
 ## License

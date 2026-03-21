@@ -125,6 +125,49 @@ elif [ "$SESSION_SCORE" -lt 80 ]; then
   score_color="$warn"
 fi
 
+# --- Creature tag ---
+creature_tag=""
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CREATURE_ENGINE="${SCRIPT_DIR}/breath-creature.sh"
+CREATURE_FILE="${BREATH_DIR}/creature.json"
+if [ -f "$CREATURE_ENGINE" ] && [ -f "$CREATURE_FILE" ] && jq empty "$CREATURE_FILE" 2>/dev/null; then
+  source "$CREATURE_ENGINE"
+  load_creature
+
+  local_species=$(creature_val '.species')
+  local_stage=$(creature_num '.stage')
+  local_hp=$(creature_num '.hp')
+  local_coins=$(creature_num '.coins')
+  local_ghost=$(creature_num '.ghost_sessions_remaining')
+  local_name=$(creature_val '.name')
+
+  if [ "$local_ghost" -gt 0 ]; then
+    creature_tag=" ${muted}|${reset} ${bad}👻${local_ghost}${reset} ${purple}${local_coins}💎${reset}"
+  elif [ -z "$local_species" ] || [ "$local_species" = "null" ]; then
+    creature_tag=" ${muted}|${reset} 🥚 ${purple}${local_coins}💎${reset}"
+  else
+    local_emoji=$(get_creature_emoji "$local_species" "$local_stage")
+    local_mood=$(get_mood_emoji "$local_hp")
+
+    # HP color
+    hp_color="$good"
+    if [ "$local_hp" -lt 20 ]; then
+      hp_color="$bad"
+    elif [ "$local_hp" -lt 40 ]; then
+      hp_color="$orange"
+    elif [ "$local_hp" -lt 60 ]; then
+      hp_color="$warn"
+    fi
+
+    local_name_tag=""
+    if [ -n "$local_name" ] && [ "$local_name" != "null" ]; then
+      local_name_tag="${blue}${local_name}${reset} "
+    fi
+
+    creature_tag=" ${muted}|${reset} ${local_name_tag}${local_emoji}${local_mood} ${hp_color}${local_hp}hp${reset} ${purple}${local_coins}💎${reset}"
+  fi
+fi
+
 # --- Build output ---
-# Format: [1h32m | 27p | ☀️ 92]  or  [2h05m | 41p ⚡18 | 🌀 45 🔥4d]
-printf "${muted}[${reset}${dur_color}${DUR_STR}${reset} ${muted}|${reset} ${dur_color}${PROMPT_COUNT}p${reset}${vel_tag}${break_tag} ${muted}|${reset} ${indicator} ${score_color}${SESSION_SCORE}${reset}${streak_tag}${muted}]${reset}"
+# Format: [1h32m | 27p | ☀️ 92 | 🐸😊 85hp 45💎]
+printf "${muted}[${reset}${dur_color}${DUR_STR}${reset} ${muted}|${reset} ${dur_color}${PROMPT_COUNT}p${reset}${vel_tag}${break_tag} ${muted}|${reset} ${indicator} ${score_color}${SESSION_SCORE}${reset}${streak_tag}${creature_tag}${muted}]${reset}"

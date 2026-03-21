@@ -26,6 +26,15 @@ if [ -f "$MESSAGES_FILE" ]; then
   HAS_MESSAGES=1
 fi
 
+# Source creature engine if available
+CREATURE_FILE="${SCRIPT_DIR}/breath-creature.sh"
+HAS_CREATURE=0
+if [ -f "$CREATURE_FILE" ]; then
+  # shellcheck source=breath-creature.sh
+  source "$CREATURE_FILE"
+  HAS_CREATURE=1
+fi
+
 # --- Default config (embedded) ---
 DEFAULT_CONFIG='{
   "nudge_system_message": true,
@@ -406,6 +415,13 @@ elif [ "$GAP_SEC" -ge $(( SESSION_GAP * 60 )) ]; then
     "$(state '.prompt_count')" "$(state '.break_count')" "$(state '.last_nudge_level')"
   prune_history
 
+  # Process creature at session boundary
+  if [ "$HAS_CREATURE" -eq 1 ]; then
+    load_creature
+    process_session_end "$final_score" "$(state '.break_count')" \
+      "$(state '.frustration_count')" "$(state '.overwork_streak')" "$(state '.healthy_streak')"
+  fi
+
   STATE=$(echo "$STATE" | jq --argjson now "$NOW" '
     .session_start = $now |
     .last_prompt = $now |
@@ -607,6 +623,13 @@ else
 
     MSG="${MSG} ${MSG_BODY}"
     [ "$CURRENT_SCORE" -lt 50 ] && MSG="${MSG} (Score: ${CURRENT_SCORE}/100)"
+
+    # Add creature personality to nudge
+    if [ "$HAS_CREATURE" -eq 1 ]; then
+      load_creature
+      CREATURE_MSG=$(get_creature_message)
+      [ -n "$CREATURE_MSG" ] && MSG="${MSG} ${CREATURE_MSG}"
+    fi
 
     nudge "$MSG"
   else
