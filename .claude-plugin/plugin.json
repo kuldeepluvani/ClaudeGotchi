@@ -1,0 +1,12 @@
+{
+  "name": "claude-breath",
+  "version": "1.0.0",
+  "description": "Developer wellness plugin — watches your coding session and tells you when to take a break. Near-zero token cost.",
+  "author": {
+    "name": "Kuldeep Luvani"
+  },
+  "repository": "https://github.com/kuldeep-luvani/claude-breath",
+  "license": "MIT",
+  "keywords": ["wellness", "breaks", "health", "hooks", "statusline"],
+  "hooks": "./hooks/hooks.json"
+}
