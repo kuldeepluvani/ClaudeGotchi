@@ -89,7 +89,7 @@ function install() {
   }
 
   // Copy everything
-  const dirs = [".claude-plugin", "hooks", "scripts", "web"];
+  const dirs = [".claude-plugin", "hooks", "scripts", "web", "bin"];
   for (const dir of dirs) {
     copyRecursive(path.join(pkgRoot, dir), path.join(INSTALL_DIR, dir));
   }
@@ -106,6 +106,9 @@ function install() {
   }
 
   log(`${green("✓")} Plugin files installed`);
+
+  // Install global CLI wrapper
+  installGlobalCLI();
 
   // Register hook in Claude Code settings
   registerHook();
@@ -125,6 +128,32 @@ function install() {
   log(`  ${dim("claudegotchi report")}     — Print wellness report`);
   log(`  ${dim("claudegotchi uninstall")}  — Remove everything`);
   console.log();
+}
+
+// ── Global CLI Wrapper ─────────────────────────────────────────────────
+function installGlobalCLI() {
+  // Create a wrapper script so `claudegotchi` works globally after install
+  const wrapper = path.join(INSTALL_DIR, "bin", "claudegotchi.js");
+  const linkTargets = [
+    path.join(HOME, ".local", "bin", "claudegotchi"),
+    "/usr/local/bin/claudegotchi",
+  ];
+
+  const script = `#!/bin/bash\nexec node "${wrapper}" "$@"\n`;
+
+  for (const target of linkTargets) {
+    try {
+      const dir = path.dirname(target);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(target, script, { mode: 0o755 });
+      log(`${green("✓")} CLI installed at ${dim(target)}`);
+      return;
+    } catch {
+      // Permission denied or dir not writable — try next
+    }
+  }
+  // Fallback: tell user to add to PATH
+  log(dim(`Optional: add ${INSTALL_DIR}/bin to your PATH for the 'claudegotchi' command`));
 }
 
 // ── Hook Registration ──────────────────────────────────────────────────
@@ -282,6 +311,20 @@ function uninstall() {
         }
         fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
         log(`${green("✓")} Hook removed from settings`);
+      }
+    } catch {}
+  }
+
+  // Remove global CLI wrapper
+  const linkTargets = [
+    path.join(HOME, ".local", "bin", "claudegotchi"),
+    "/usr/local/bin/claudegotchi",
+  ];
+  for (const target of linkTargets) {
+    try {
+      if (fs.existsSync(target)) {
+        fs.unlinkSync(target);
+        log(`${green("✓")} Removed ${target}`);
       }
     } catch {}
   }
