@@ -1,0 +1,28 @@
+{
+  "name": "claudegotchi",
+  "version": "1.0.0",
+  "description": "A smart wellness plugin for Claude Code with a virtual creature that thrives when you code healthy.",
+  "bin": {
+    "claudegotchi": "./bin/claudegotchi.js"
+  },
+  "keywords": ["claude", "claude-code", "wellness", "tamagotchi", "developer-tools", "health"],
+  "author": "Kuldeep Luvani",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kuldeepluvani/ClaudeGotchi.git"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "hooks/",
+    "web/",
+    ".claude-plugin/",
+    "config.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=16"
+  }
+}

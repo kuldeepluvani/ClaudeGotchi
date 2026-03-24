@@ -6,46 +6,42 @@ A **smart wellness plugin** for [Claude Code](https://docs.anthropic.com/en/docs
 
 ## Install
 
-**Requirements:** `bash 3.2+`, `jq`, `python3` (for dashboard)
+**Requirements:** `bash 3.2+`, `jq`, `python3`, `node 16+`
 
-### Quick start
+### One command (recommended)
+
+```bash
+npx claudegotchi
+```
+
+This does everything:
+1. Installs plugin files to `~/.claude-plugins/claudegotchi/`
+2. Registers the hook in `~/.claude/settings.json`
+3. Starts the dashboard server at `http://localhost:8420`
+
+Start Claude Code normally — the hook is already active.
+
+### Other commands
+
+```bash
+npx claudegotchi dashboard   # Start/restart the dashboard
+npx claudegotchi stop        # Stop the dashboard
+npx claudegotchi status      # Show install/hook/creature status
+npx claudegotchi report      # Print wellness intelligence report
+npx claudegotchi uninstall   # Remove everything
+```
+
+### Manual install (from source)
 
 ```bash
 git clone git@github.com:kuldeepluvani/ClaudeGotchi.git ~/ClaudeGotchi
 claude --plugin-dir ~/ClaudeGotchi
+bash ~/ClaudeGotchi/scripts/breath-dashboard.sh  # Optional: launch dashboard
 ```
 
-That's it. The hook auto-registers and starts tracking your session immediately.
+### Dashboard
 
-### Manual hook install (without plugin)
-
-If you prefer not to use `--plugin-dir`, add the hook directly to `~/.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/ClaudeGotchi/scripts/breath-hook.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Launch the dashboard
-
-```bash
-bash ~/ClaudeGotchi/scripts/breath-dashboard.sh
-```
-
-Opens a web dashboard at `http://localhost:8420` with:
+Opens a web UI at `http://localhost:8420` with:
 - Live creature status, HP ring, evolution path
 - 14-day score timeline and velocity terrain
 - Guided breathing exercises (box, 4-7-8, energize)
@@ -266,6 +262,8 @@ Includes: summary stats, behavioral intelligence (scores, velocity, frustration)
 
 ```
 ClaudeGotchi/
+├── bin/
+│   └── claudegotchi.js         # npx CLI — install, dashboard, status, uninstall
 ├── .claude-plugin/
 │   └── plugin.json             # Plugin manifest
 ├── hooks/
@@ -285,6 +283,7 @@ ClaudeGotchi/
 │   ├── test-hook.sh            # 52 assertions
 │   ├── test-creature.sh        # 70 assertions
 │   └── test-status.sh          # 10 assertions
+├── package.json                # npm package config
 ├── .gitignore
 ├── LICENSE
 └── README.md
