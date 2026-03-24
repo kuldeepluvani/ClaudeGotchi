@@ -5,7 +5,7 @@
   "author": {
     "name": "Kuldeep Luvani"
   },
-  "repository": "https://github.com/kuldeep-luvani/claude-breath",
+  "repository": "https://github.com/kuldeepluvani/ClaudeGotchi",
   "license": "MIT",
   "keywords": ["wellness", "breaks", "health", "hooks", "statusline"],
   "hooks": "./hooks/hooks.json"
