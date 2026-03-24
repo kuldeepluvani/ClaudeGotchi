@@ -11,24 +11,27 @@ A **smart wellness plugin** for [Claude Code](https://docs.anthropic.com/en/docs
 ### One command (recommended)
 
 ```bash
-npx claudegotchi
+npx github:kuldeepluvani/ClaudeGotchi
 ```
 
 This does everything:
 1. Installs plugin files to `~/.claude-plugins/claudegotchi/`
 2. Registers the hook in `~/.claude/settings.json`
-3. Starts the dashboard server at `http://localhost:8420`
+3. Installs the `claudegotchi` CLI command
+4. Starts the dashboard server at `http://localhost:8420`
 
 Start Claude Code normally — the hook is already active.
 
-### Other commands
+### Commands
+
+After install, the `claudegotchi` command is available globally:
 
 ```bash
-npx claudegotchi dashboard   # Start/restart the dashboard
-npx claudegotchi stop        # Stop the dashboard
-npx claudegotchi status      # Show install/hook/creature status
-npx claudegotchi report      # Print wellness intelligence report
-npx claudegotchi uninstall   # Remove everything
+claudegotchi dashboard   # Start/restart the dashboard
+claudegotchi stop        # Stop the dashboard
+claudegotchi status      # Show install/hook/creature status
+claudegotchi report      # Print wellness intelligence report
+claudegotchi uninstall   # Remove everything
 ```
 
 ### Manual install (from source)
