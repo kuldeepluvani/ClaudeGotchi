@@ -6,6 +6,7 @@ breath.db
 breath.db-wal
 breath.db-shm
 *.tmp
+__pycache__/
 web/*.json
 web/*.jsonl
 .superpowers/
