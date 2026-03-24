@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Breath</title>
+<style>
+  :root {
+    --bg: #060610; --bg2: #0a0a14; --card: #0c0c18;
+    --border: rgba(255,255,255,0.06); --text: #e0e0e0;
+    --dim: #555; --muted: #888; --white: #fff;
+    --green: #4aff8a; --blue: #4a8aff; --purple: #aa88ff;
+    --yellow: #ffcc44; --orange: #ff6644; --red: #ff4444; --cyan: #44ffee;
+    --terrain-bg: #060610;
+  }
+  body.light {
+    --bg: #f2f1ec; --bg2: #eae9e3; --card: #ffffff;
+    --border: rgba(0,0,0,0.08); --text: #1a1a1a;
+    --dim: #aaa; --muted: #777; --white: #111;
+    --green: #1a9a4a; --blue: #2a6adf; --purple: #7a5ac0;
+    --yellow: #b8900a; --orange: #d05a2a; --red: #cc2222; --cyan: #1a9a8a;
+    --terrain-bg: #eae9e3;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { font-size: clamp(15px, 1.8vh, 18px); }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, 'SF Pro Display', sans-serif;
+    height: 100vh; overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: background 0.4s;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px; background: var(--bg2); border-bottom: 1px solid var(--border);
+  }
+  .tb-left { display: flex; align-items: center; gap: 12px; }
+  .pulse-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 6px var(--green)} 50%{opacity:0.3;box-shadow:none} }
+  .tb-label { font-size: 13px; color: var(--green); font-weight: 500; }
+  .tb-stats { display: flex; gap: 16px; font-size: 13px; color: var(--dim); }
+  .tb-stats b { color: var(--muted); font-weight: 500; }
+  .tb-right { display: flex; align-items: center; gap: 8px; }
+  .tb-badge { padding: 4px 12px; border-radius: 14px; font-size: 11px; }
+  .tb-badge.good { background: rgba(74,255,138,0.08); color: var(--green); border: 1px solid rgba(74,255,138,0.12); }
+  .tb-badge.warn { background: rgba(255,204,68,0.08); color: var(--yellow); border: 1px solid rgba(255,204,68,0.12); }
+  .tb-badge.bad { background: rgba(255,102,68,0.08); color: var(--orange); border: 1px solid rgba(255,102,68,0.12); }
+  .theme-btn {
+    width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    background: transparent; border: 1px solid var(--border); cursor: pointer; font-size: 14px; margin-left: 8px;
+    transition: all 0.2s;
+  }
+  .theme-btn:hover { border-color: var(--purple); }
+
+  /* MAIN LAYOUT */
+  .main {
+    flex: 1; display: grid; overflow: hidden;
+    grid-template-columns: clamp(240px, 22vw, 320px) 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 12px; padding: 12px;
+  }
+  .main.full-width { grid-template-columns: 1fr; }
+  .tabs { grid-column: 1 / -1; display: flex; gap: 4px; }
+  .tab {
+    padding: 7px 18px; font-size: 12px; color: var(--dim);
+    border-radius: 8px; cursor: pointer; transition: all 0.2s;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+  .tab:hover { color: var(--muted); background: rgba(255,255,255,0.03); }
+  .tab.active { color: var(--green); background: rgba(74,255,138,0.06); }
+  .tab-page { display: none; }
+  .tab-page.active { display: contents; }
+
+  /* CREATURE CARD */
+  .creature-card {
+    background: linear-gradient(160deg, var(--card) 0%, rgba(12,12,30,1) 100%);
+    border: 1px solid var(--border); border-radius: 16px;
+    display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+    align-self: start; max-height: 55vh;
+  }
+  body.light .creature-card { background: linear-gradient(160deg, #ffffff 0%, #f4f4f0 100%); }
+  .creature-card::before {
+    content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent); border-radius: 1px;
+  }
+  .cc-hero {
+    display: flex; flex-direction: column; align-items: center;
+    padding: clamp(16px, 2.5vh, 28px) 16px clamp(10px, 1.5vh, 16px);
+    position: relative;
+  }
+  .cc-ambient { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .cc-orb { position: absolute; border-radius: 50%; filter: blur(50px); opacity: 0.05; animation: drift 20s ease-in-out infinite; }
+  .cc-orb.a { width: 120px; height: 120px; background: var(--green); top: -10%; left: 10%; }
+  .cc-orb.b { width: 100px; height: 100px; background: var(--purple); bottom: 0; right: 10%; animation-delay: -8s; }
+  @keyframes drift { 0%,100%{transform:translate(0,0)} 50%{transform:translate(8px,-8px)} }
+  .creature-wrap {
+    position: relative; z-index: 2;
+    width: clamp(110px, 14vh, 160px); height: clamp(110px, 14vh, 160px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .creature-wrap svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+  .hp-track { fill: none; stroke: rgba(255,255,255,0.04); stroke-width: 3; }
+  .hp-fill { fill: none; stroke: url(#hpG); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 440; transition: stroke-dashoffset 2s; }
+  body.light .hp-track { stroke: rgba(0,0,0,0.06); }
+  .c-ring {
+    position: absolute; border-radius: 50%; border: 1px solid rgba(74,255,138,0.05);
+    top: 50%; left: 50%; transform: translate(-50%,-50%);
+  }
+  .c-ring.r1 { width: 78%; height: 78%; animation: rp 4s ease-in-out infinite; }
+  .c-ring.r2 { width: 92%; height: 92%; animation: rp 4s ease-in-out infinite 0.4s; }
+  body.light .c-ring { border-color: rgba(26,154,74,0.06); }
+  @keyframes rp { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:0.3} 50%{transform:translate(-50%,-50%) scale(1.06);opacity:0} }
+  .c-emoji {
+    font-size: clamp(46px, 7vh, 72px); z-index: 2; position: relative;
+    animation: bob 3s ease-in-out infinite;
+    filter: drop-shadow(0 8px 16px rgba(74,255,138,0.08));
+  }
+  @keyframes bob { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-0.6vh) scale(1.03)} }
+  .c-name {
+    font-size: clamp(13px, 1.7vh, 17px); color: var(--green);
+    letter-spacing: 5px; text-transform: uppercase; font-weight: 300;
+    font-family: 'SF Mono', monospace; margin-top: clamp(6px, 1vh, 12px);
+    text-shadow: 0 0 12px rgba(74,255,138,0.15);
+  }
+  .c-title { font-size: clamp(10px, 1.2vh, 12px); color: var(--dim); margin-top: 2px; }
+  .cc-divider { width: 100%; height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); }
+  .cc-hp {
+    padding: clamp(8px, 1.2vh, 14px) 16px;
+    width: 100%; display: flex; align-items: center; gap: 12px;
+  }
+  .hp-bar-wrap { flex: 1; }
+  .hp-outer { width: 100%; height: 5px; background: rgba(255,255,255,0.04); border-radius: 3px; overflow: hidden; }
+  .hp-inner { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--red), var(--yellow), var(--green)); box-shadow: 0 0 6px rgba(74,255,138,0.2); transition: width 2s; }
+  body.light .hp-outer { background: rgba(0,0,0,0.06); }
+  .hp-text { font-size: clamp(9px, 1vh, 11px); color: var(--dim); margin-top: 3px; }
+  .hp-val { font-size: clamp(20px, 2.8vh, 30px); font-weight: 200; color: var(--green); line-height: 1; min-width: 50px; text-align: right; }
+  .hp-val small { font-size: 0.5em; color: var(--dim); }
+  .cc-stats { padding: 0 16px clamp(8px, 1vh, 12px); width: 100%; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; }
+  .sr-item { text-align: center; padding: clamp(6px, 0.9vh, 10px) 2px; border-radius: 8px; background: rgba(255,255,255,0.02); }
+  body.light .sr-item { background: rgba(0,0,0,0.03); }
+  .sr-val { font-size: clamp(13px, 1.7vh, 17px); font-weight: 500; }
+  .sr-label { font-size: clamp(7px, 0.85vh, 9px); color: var(--dim); margin-top: 1px; letter-spacing: 0.5px; }
+  .sr-val.green { color: var(--green); } .sr-val.purple { color: var(--purple); }
+  .sr-val.blue { color: var(--blue); } .sr-val.yellow { color: var(--yellow); }
+
+  /* ANALYTICS */
+  .analytics { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; min-height: 0; padding-right: 4px; }
+  .analytics::-webkit-scrollbar { width: 4px; }
+  .analytics::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
+  .a-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: clamp(12px, 1.8vh, 18px); flex-shrink: 0; }
+  .a-title { font-size: clamp(9px, 1.1vh, 11px); letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 10px; font-weight: 600; }
+
+  /* EVO */
+  .evo { display: flex; align-items: center; justify-content: center; gap: clamp(6px, 1vw, 14px); width: 100%; }
+  .evo-n { text-align: center; opacity: 0.2; transition: all 0.3s; position: relative; cursor: default; }
+  .evo-n.done { opacity: 0.45; } .evo-n.now { opacity: 1; transform: scale(1.15); }
+  .evo-n:hover { opacity: 1; } .evo-n:hover .evo-tip { display: block; }
+  .evo-tip { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: rgba(6,6,12,0.92); padding: 6px 12px; border-radius: 6px; font-size: 10px; white-space: nowrap; border: 1px solid var(--border); z-index: 10; text-align: center; line-height: 1.5; color: var(--muted); backdrop-filter: blur(8px); }
+  body.light .evo-tip { background: rgba(255,255,255,0.94); }
+  .evo-tip strong { color: var(--text); font-weight: 500; }
+  .evo-e { font-size: clamp(20px, 2.8vh, 32px); } .evo-l { font-size: clamp(8px, 1vh, 10px); color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
+  .evo-line { width: clamp(20px, 4vw, 50px); height: 2px; background: rgba(255,255,255,0.04); border-radius: 1px; }
+  .evo-line.done { background: linear-gradient(90deg, rgba(74,255,138,0.15), rgba(74,255,138,0.3)); box-shadow: 0 0 4px rgba(74,255,138,0.15); }
+
+  /* TIMELINE */
+  .timeline { display: flex; gap: 3px; }
+  .tl-d { flex: 1; text-align: center; position: relative; cursor: default; }
+  .tl-d:hover .tl-tip { display: block; } .tl-d:hover .tl-bar { outline: 1px solid rgba(74,255,138,0.2); }
+  .tl-tip { display: none; position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); background: rgba(6,6,12,0.92); padding: 6px 10px; border-radius: 6px; font-size: 10px; white-space: nowrap; border: 1px solid var(--border); z-index: 10; text-align: center; line-height: 1.5; color: var(--muted); backdrop-filter: blur(8px); }
+  body.light .tl-tip { background: rgba(255,255,255,0.94); } .tl-tip strong { color: var(--text); font-weight: 500; }
+  .tl-bar { height: clamp(48px, 7vh, 72px); background: rgba(255,255,255,0.02); border-radius: 4px; position: relative; overflow: hidden; margin: 2px 0; transition: outline 0.2s; }
+  body.light .tl-bar { background: rgba(0,0,0,0.04); }
+  .tl-fill { position: absolute; bottom: 0; left: 0; right: 0; border-radius: 4px; }
+  .tl-label { font-size: clamp(8px, 0.9vh, 10px); color: var(--dim); }
+  .tl-score { font-size: clamp(8px, 0.9vh, 10px); color: var(--muted); font-weight: 600; }
+
+  /* TERRAIN */
+  .terrain { height: clamp(75px, 10vh, 110px); border-radius: 10px; overflow: hidden; position: relative; }
+  .trn-zones { position: absolute; inset: 0; display: flex; }
+  .trn-z { flex: 1; cursor: crosshair; position: relative; }
+  .trn-z:hover .trn-t { display: block; }
+  .trn-t { display: none; position: absolute; top: 4px; left: 50%; transform: translateX(-50%); background: rgba(6,6,12,0.9); padding: 4px 10px; border-radius: 5px; font-size: 10px; white-space: nowrap; border: 1px solid var(--border); z-index: 5; text-align: center; line-height: 1.4; }
+  body.light .trn-t { background: rgba(255,255,255,0.92); }
+
+  /* TABLE */
+  .s-tbl { width: 100%; border-collapse: collapse; }
+  .s-tbl th { text-align: left; padding: 6px 8px; font-size: clamp(8px, 1vh, 10px); color: var(--dim); font-weight: 500; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  .s-tbl td { padding: 6px 8px; font-size: clamp(11px, 1.3vh, 13px); color: var(--muted); border-bottom: 1px solid rgba(255,255,255,0.02); }
+  body.light .s-tbl td { border-bottom-color: rgba(0,0,0,0.04); }
+  .s-tbl tr:hover td { color: var(--text); }
+
+  /* SHOP & LEGENDS */
+  .sl-layout { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; height: 100%; }
+  .sl-shop, .sl-legends { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: clamp(16px, 2vh, 24px); display: flex; flex-direction: column; overflow-y: auto; }
+  .sl-shop::-webkit-scrollbar, .sl-legends::-webkit-scrollbar { width: 3px; }
+  .sl-shop::-webkit-scrollbar-thumb, .sl-legends::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
+  .sl-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: clamp(12px, 2vh, 20px); flex-shrink: 0; }
+  .sl-title { font-size: clamp(11px, 1.4vh, 14px); letter-spacing: 2px; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  .sl-bal { font-size: clamp(18px, 2.5vh, 26px); color: var(--purple); font-weight: 300; text-shadow: 0 0 12px rgba(170,136,255,0.15); }
+  .sl-count { font-size: clamp(10px, 1.2vh, 12px); color: var(--dim); }
+  .shop-grid { display: flex; flex-direction: column; gap: 8px; }
+  .shop-card { display: flex; align-items: center; gap: clamp(10px, 1.5vw, 16px); padding: clamp(10px, 1.4vh, 16px) clamp(12px, 1.5vw, 18px); background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+  .shop-card:hover { border-color: var(--purple); transform: translateX(3px); box-shadow: 0 4px 16px rgba(170,136,255,0.08); }
+  .shop-card.disabled { opacity: 0.4; pointer-events: none; }
+  body.light .shop-card { background: rgba(0,0,0,0.02); }
+  .shop-icon { font-size: clamp(24px, 3.5vh, 34px); flex-shrink: 0; }
+  .shop-info { flex: 1; } .shop-name { font-size: clamp(13px, 1.6vh, 16px); color: var(--text); font-weight: 500; }
+  .shop-desc { font-size: clamp(10px, 1.2vh, 12px); color: var(--dim); margin-top: 1px; }
+  .shop-price { font-size: clamp(14px, 1.8vh, 18px); color: var(--purple); font-weight: 600; flex-shrink: 0; }
+  .shop-result { margin-top: 12px; padding: 10px 14px; border-radius: 10px; font-size: 13px; display: none; text-align: center; }
+  .shop-result.success { display: block; background: rgba(74,255,138,0.08); color: var(--green); border: 1px solid rgba(74,255,138,0.12); }
+  .shop-result.error { display: block; background: rgba(255,68,68,0.08); color: var(--red); border: 1px solid rgba(255,68,68,0.12); }
+  .leg-list { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .leg-card { display: flex; align-items: center; gap: clamp(8px, 1.2vw, 14px); padding: clamp(10px, 1.4vh, 16px) clamp(12px, 1.5vw, 18px); background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; transition: all 0.2s; }
+  .leg-card:hover { border-color: rgba(255,255,255,0.1); }
+  body.light .leg-card { background: rgba(0,0,0,0.02); }
+  .leg-rank { font-size: clamp(10px, 1.2vh, 12px); color: var(--dim); font-weight: 600; flex-shrink: 0; width: 24px; text-align: center; }
+  .leg-emoji { font-size: clamp(28px, 3.5vh, 38px); opacity: 0.5; flex-shrink: 0; }
+  .leg-body { flex: 1; min-width: 0; } .leg-name { font-size: clamp(13px, 1.6vh, 16px); color: var(--muted); font-weight: 500; }
+  .leg-species { font-size: clamp(10px, 1.2vh, 12px); color: var(--dim); margin-top: 1px; }
+  .leg-stats-row { display: flex; gap: 6px; margin-top: 5px; }
+  .leg-tag { font-size: clamp(9px, 1vh, 11px); padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+  .leg-tag.xp { background: rgba(74,138,255,0.1); color: var(--blue); border: 1px solid rgba(74,138,255,0.15); }
+  .leg-tag.saves { background: rgba(74,255,138,0.08); color: var(--green); border: 1px solid rgba(74,255,138,0.12); }
+  .leg-dates { font-size: clamp(9px, 1.1vh, 11px); color: var(--dim); flex-shrink: 0; text-align: right; }
+  .leg-epitaph { margin-top: auto; padding-top: clamp(12px, 1.5vh, 18px); text-align: center; color: var(--dim); font-size: clamp(10px, 1.2vh, 12px); opacity: 0.5; line-height: 1.6; }
+  .leg-epitaph-icon { font-size: 24px; margin-bottom: 6px; }
+
+  /* BREATHE TAB */
+  .breathe-layout { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 24px; }
+  .breathe-container { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  .breathe-ring-wrap { position: relative; width: clamp(200px, 30vh, 320px); height: clamp(200px, 30vh, 320px); }
+  .breathe-ring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid var(--green); opacity: 0.3; transition: all 0.3s; }
+  .breathe-ring.active { opacity: 1; box-shadow: 0 0 40px rgba(74,255,138,0.15); }
+  .breathe-circle {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 40%; height: 40%; border-radius: 50%;
+    background: radial-gradient(circle, rgba(74,255,138,0.2), rgba(74,255,138,0.05));
+    transition: width 0.1s, height 0.1s;
+  }
+  .breathe-circle.active { background: radial-gradient(circle, rgba(74,255,138,0.35), rgba(74,255,138,0.1)); }
+  .breathe-phase {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: clamp(16px, 2.5vh, 24px); color: var(--green); font-weight: 300;
+    letter-spacing: 4px; text-transform: uppercase; text-shadow: 0 0 12px rgba(74,255,138,0.2);
+  }
+  .breathe-timer { font-size: clamp(36px, 6vh, 56px); color: var(--text); font-weight: 100; font-family: 'SF Mono', monospace; }
+  .breathe-subtitle { font-size: clamp(11px, 1.4vh, 14px); color: var(--dim); text-align: center; max-width: 400px; line-height: 1.6; }
+  .breathe-controls { display: flex; gap: 12px; align-items: center; }
+  .breathe-btn {
+    padding: 10px 28px; border-radius: 12px; font-size: 14px; cursor: pointer;
+    border: 1px solid var(--border); background: rgba(255,255,255,0.02); color: var(--text);
+    transition: all 0.2s; letter-spacing: 1px;
+  }
+  .breathe-btn:hover { border-color: var(--green); color: var(--green); }
+  .breathe-btn.primary { background: rgba(74,255,138,0.08); color: var(--green); border-color: rgba(74,255,138,0.2); }
+  .breathe-btn.primary:hover { background: rgba(74,255,138,0.15); }
+  .breathe-patterns { display: flex; gap: 8px; margin-top: 8px; }
+  .breathe-pat {
+    padding: 6px 14px; border-radius: 8px; font-size: 11px; cursor: pointer;
+    border: 1px solid var(--border); background: transparent; color: var(--dim);
+    transition: all 0.2s; letter-spacing: 0.5px;
+  }
+  .breathe-pat:hover { color: var(--muted); }
+  .breathe-pat.active { color: var(--cyan); border-color: rgba(68,255,238,0.2); background: rgba(68,255,238,0.06); }
+  .breathe-stats { display: flex; gap: 24px; margin-top: 12px; }
+  .breathe-stat { text-align: center; }
+  .breathe-stat-val { font-size: clamp(18px, 2.5vh, 24px); font-weight: 300; color: var(--cyan); }
+  .breathe-stat-label { font-size: clamp(9px, 1vh, 11px); color: var(--dim); margin-top: 2px; letter-spacing: 0.5px; }
+  .wellness-tips { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: 600px; margin-top: 8px; }
+  .wellness-tip {
+    padding: 8px 14px; border-radius: 10px; font-size: 12px; color: var(--muted);
+    background: var(--card); border: 1px solid var(--border); line-height: 1.5;
+  }
+
+  /* SETTINGS TAB */
+  .settings-layout { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; height: 100%; overflow-y: auto; align-content: start; padding-bottom: 24px; }
+  .settings-layout::-webkit-scrollbar { width: 4px; }
+  .settings-layout::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
+  .s-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: clamp(14px, 2vh, 20px); }
+  .s-card-title { font-size: clamp(10px, 1.2vh, 12px); letter-spacing: 2px; text-transform: uppercase; color: var(--dim); font-weight: 600; margin-bottom: 14px; }
+  .s-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.02); }
+  body.light .s-row { border-bottom-color: rgba(0,0,0,0.04); }
+  .s-row:last-child { border-bottom: none; }
+  .s-row-label { font-size: 13px; color: var(--muted); }
+  .s-row-hint { font-size: 10px; color: var(--dim); margin-top: 2px; }
+  .s-input {
+    width: 80px; padding: 5px 8px; border-radius: 6px; font-size: 13px; text-align: right;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border); color: var(--text);
+    font-family: 'SF Mono', monospace;
+  }
+  body.light .s-input { background: rgba(0,0,0,0.03); }
+  .s-input:focus { outline: none; border-color: var(--green); }
+  .s-toggle { position: relative; width: 40px; height: 22px; cursor: pointer; }
+  .s-toggle input { opacity: 0; width: 0; height: 0; }
+  .s-toggle-track {
+    position: absolute; inset: 0; border-radius: 11px;
+    background: rgba(255,255,255,0.06); transition: background 0.2s;
+  }
+  body.light .s-toggle-track { background: rgba(0,0,0,0.1); }
+  .s-toggle-track::after {
+    content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--dim); top: 3px; left: 3px; transition: all 0.2s;
+  }
+  .s-toggle input:checked + .s-toggle-track { background: rgba(74,255,138,0.2); }
+  .s-toggle input:checked + .s-toggle-track::after { background: var(--green); transform: translateX(18px); }
+  .s-save-bar { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; padding: 0 4px; }
+  .s-save-btn {
+    padding: 8px 24px; border-radius: 10px; font-size: 13px; cursor: pointer;
+    border: 1px solid rgba(74,255,138,0.2); background: rgba(74,255,138,0.08);
+    color: var(--green); transition: all 0.2s; letter-spacing: 0.5px;
+  }
+  .s-save-btn:hover { background: rgba(74,255,138,0.15); }
+  .s-save-status { font-size: 12px; color: var(--green); align-self: center; opacity: 0; transition: opacity 0.3s; }
+  .s-save-status.show { opacity: 1; }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-left">
+    <div class="pulse-dot"></div>
+    <div class="tb-label">Live Session</div>
+    <div class="tb-stats" id="session-stats"></div>
+  </div>
+  <div class="tb-right" id="badges"></div>
+</div>
+
+<div class="main" id="main-grid">
+  <div class="tabs">
+    <div class="tab active" data-tab="dash">Dashboard</div>
+    <div class="tab" data-tab="breathe">Breathe</div>
+    <div class="tab" data-tab="shop">Shop & Legends</div>
+    <div class="tab" data-tab="settings">Settings</div>
+  </div>
+
+  <!-- DASHBOARD TAB -->
+  <div class="tab-page active" id="tp-dash">
+    <div class="creature-card" id="creature-card"></div>
+    <div class="analytics">
+      <div class="a-card"><div class="a-title">Evolution Path</div><div class="evo" id="evo-path"></div></div>
+      <div class="a-card"><div class="a-title">14-Day Score Timeline</div><div class="timeline" id="timeline"></div></div>
+      <div class="a-card">
+        <div class="a-title">Velocity Terrain</div>
+        <div class="terrain" id="terrain"></div>
+      </div>
+      <div class="a-card"><div class="a-title">Recent Sessions</div><table class="s-tbl"><thead><tr><th>Date</th><th>Duration</th><th>Prompts</th><th>Breaks</th><th>Score</th><th>Vel</th></tr></thead><tbody id="sessions-body"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- BREATHE TAB -->
+  <div class="tab-page" id="tp-breathe">
+    <div class="breathe-layout">
+      <div class="breathe-container">
+        <div class="breathe-ring-wrap">
+          <div class="breathe-ring" id="breathe-ring"></div>
+          <div class="breathe-circle" id="breathe-circle"></div>
+          <div class="breathe-phase" id="breathe-phase">Ready</div>
+        </div>
+        <div class="breathe-timer" id="breathe-timer">0:00</div>
+        <div class="breathe-controls">
+          <button class="breathe-btn primary" id="breathe-start">Start</button>
+          <button class="breathe-btn" id="breathe-stop" style="display:none">Stop</button>
+        </div>
+        <div class="breathe-patterns">
+          <button class="breathe-pat active" data-pattern="box">Box 4-4-4-4</button>
+          <button class="breathe-pat" data-pattern="relax">4-7-8 Relax</button>
+          <button class="breathe-pat" data-pattern="energize">2-2 Energize</button>
+        </div>
+        <div class="breathe-stats">
+          <div class="breathe-stat"><div class="breathe-stat-val" id="breathe-cycles">0</div><div class="breathe-stat-label">Cycles</div></div>
+          <div class="breathe-stat"><div class="breathe-stat-val" id="breathe-elapsed">0:00</div><div class="breathe-stat-label">Elapsed</div></div>
+        </div>
+      </div>
+      <div class="breathe-subtitle">
+        Take a moment to breathe. Focused breathing reduces cortisol, sharpens attention, and helps you return to code with fresh perspective.
+      </div>
+      <div class="wellness-tips" id="wellness-tips"></div>
+    </div>
+  </div>
+
+  <!-- SHOP & LEGENDS TAB -->
+  <div class="tab-page" id="tp-shop">
+    <div class="sl-layout">
+      <div class="sl-shop">
+        <div class="sl-header"><div class="sl-title">Breath Shop</div><div class="sl-bal" id="shop-bal">0</div></div>
+        <div class="shop-grid" id="shop-grid"></div>
+        <div class="shop-result" id="shop-result"></div>
+      </div>
+      <div class="sl-legends">
+        <div class="sl-header"><div class="sl-title">Hall of Legends</div><div class="sl-count" id="leg-count"></div></div>
+        <div class="leg-list" id="leg-list"></div>
+        <div class="leg-epitaph"><div class="leg-epitaph-icon">🕊️</div>Every creature's story is preserved here.<br>May your current companion live long.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div class="tab-page" id="tp-settings">
+    <div class="settings-layout">
+      <div class="s-card">
+        <div class="s-card-title">Nudge Thresholds (minutes)</div>
+        <div class="s-row"><div><div class="s-row-label">Level 1 (gentle)</div><div class="s-row-hint">First nudge after this many minutes</div></div><input class="s-input" id="cfg-t1" type="number"></div>
+        <div class="s-row"><div><div class="s-row-label">Level 2 (firm)</div></div><input class="s-input" id="cfg-t2" type="number"></div>
+        <div class="s-row"><div><div class="s-row-label">Level 3 (strong)</div></div><input class="s-input" id="cfg-t3" type="number"></div>
+        <div class="s-row"><div><div class="s-row-label">Cooldown</div><div class="s-row-hint">Minutes between repeat nudges</div></div><input class="s-input" id="cfg-cooldown" type="number"></div>
+      </div>
+      <div class="s-card">
+        <div class="s-card-title">Behavior Detection</div>
+        <div class="s-row"><div><div class="s-row-label">Velocity threshold</div><div class="s-row-hint">Prompts per 5 min to trigger velocity alert</div></div><input class="s-input" id="cfg-vel" type="number"></div>
+        <div class="s-row"><div><div class="s-row-label">Frustration threshold</div><div class="s-row-hint">Prompts per 5 min to detect frustration</div></div><input class="s-input" id="cfg-frust" type="number"></div>
+        <div class="s-row"><div><div class="s-row-label">Density threshold</div><div class="s-row-hint">Total prompts before density boost</div></div><input class="s-input" id="cfg-density" type="number"></div>
+        <div class="s-row"><div><div class="s-row-label">Streak alert (days)</div></div><input class="s-input" id="cfg-streak" type="number"></div>
+      </div>
+      <div class="s-card">
+        <div class="s-card-title">Time Awareness</div>
+        <div class="s-row"><div><div class="s-row-label">Off-hours start</div><div class="s-row-hint">Hour (24h) when off-hours begin</div></div><input class="s-input" id="cfg-offstart" type="number" min="0" max="23"></div>
+        <div class="s-row"><div><div class="s-row-label">Off-hours end</div></div><input class="s-input" id="cfg-offend" type="number" min="0" max="23"></div>
+        <div class="s-row"><div><div class="s-row-label">Off-hours multiplier</div><div class="s-row-hint">Threshold reduction (e.g. 0.67 = 33% sooner)</div></div><input class="s-input" id="cfg-offmult" type="number" step="0.01"></div>
+        <div class="s-row"><div><div class="s-row-label">Weekend multiplier</div></div><input class="s-input" id="cfg-wkndmult" type="number" step="0.01"></div>
+      </div>
+      <div class="s-card">
+        <div class="s-card-title">Features</div>
+        <div class="s-row"><div class="s-row-label">Nudge system messages</div><label class="s-toggle"><input type="checkbox" id="cfg-nudge"><div class="s-toggle-track"></div></label></div>
+        <div class="s-row"><div class="s-row-label">Adaptive thresholds</div><label class="s-toggle"><input type="checkbox" id="cfg-adaptive"><div class="s-toggle-track"></div></label></div>
+        <div class="s-row"><div class="s-row-label">Message variety</div><label class="s-toggle"><input type="checkbox" id="cfg-variety"><div class="s-toggle-track"></div></label></div>
+        <div class="s-row"><div><div class="s-row-label">Break gap (min)</div><div class="s-row-hint">Gap to count as a break</div></div><input class="s-input" id="cfg-breakgap" type="number"></div>
+        <div class="s-row"><div><div class="s-row-label">Session gap (min)</div><div class="s-row-hint">Gap to start a new session</div></div><input class="s-input" id="cfg-sessiongap" type="number"></div>
+        <div class="s-row"><div><div class="s-row-label">History retention (days)</div></div><input class="s-input" id="cfg-retention" type="number"></div>
+      </div>
+      <div class="s-save-bar">
+        <span class="s-save-status" id="save-status">Saved</span>
+        <button class="s-save-btn" onclick="saveConfig()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// === SPECIES DATA ===
+const SPECIES = {
+  dragon: ['🥚','🐛','🦎','🐲','🐉'],
+  bird:   ['🥚','🐣','🐥','🦅','🔱'],
+  plant:  ['🥚','🌱','🌿','🌳','🌲'],
+  deepsea:['🥚','🫧','🐡','🐙','🌊']
+};
+const STAGE_NAMES = ['Egg','Baby','Teen','Adult','Legendary'];
+const XP_THRESHOLDS = [0, 50, 300, 1000, 3000];
+const MOODS = {dead:'👻',critical:'😵',sick:'🤒',hungry:'😟',content:'😌',thriving:'😊'};
+
+function getEmoji(species, stage) { return (SPECIES[species]||SPECIES.dragon)[stage]||'🥚'; }
+function getMood(hp) { if(hp<=0)return'dead';if(hp<=19)return'critical';if(hp<=39)return'sick';if(hp<=59)return'hungry';if(hp<=79)return'content';return'thriving'; }
+function scoreColor(s) { return s>=80?'var(--green)':s>=60?'var(--yellow)':s>0?'var(--red)':'var(--dim)'; }
+function fmtDur(min) { const h=Math.floor(min/60),m=min%60; return h>0?`${h}h ${String(m).padStart(2,'0')}m`:`${m}m`; }
+
+// === TABS ===
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const name = tab.dataset.tab;
+    document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tp-' + name).classList.add('active');
+    tab.classList.add('active');
+    // Full-width for breathe, shop, settings
+    const main = document.getElementById('main-grid');
+    if (name === 'dash') main.classList.remove('full-width');
+    else main.classList.add('full-width');
+  });
+});
+
+// === DATA ===
+let state = {}, creature = {}, history = [], config = {};
+
+async function fetchJSON(path) {
+  try { const r = await fetch(path + '?t=' + Date.now()); if (!r.ok) return null; return r.json(); } catch { return null; }
+}
+async function fetchJSONL(path) {
+  try {
+    const r = await fetch(path + '?t=' + Date.now()); if (!r.ok) return [];
+    const txt = await r.text();
+    return txt.trim().split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  } catch { return []; }
+}
+
+function synthesizeLiveSession(st) {
+  if (!st || !st.session_start || st.session_start === 0) return null;
+  const now = Math.floor(Date.now() / 1000);
+  const durMin = Math.floor((now - st.session_start) / 60);
+  if (durMin < 1) return null;
+  const d = new Date(st.session_start * 1000);
+  return {
+    date: d.toISOString().split('T')[0], start: d.toTimeString().slice(0, 5),
+    end: new Date().toTimeString().slice(0, 5), duration_min: durMin,
+    prompts: st.prompt_count || 0, breaks: st.break_count || 0,
+    nudges_fired: st.last_nudge_level || 0, peak_velocity: st.peak_velocity || 0,
+    frustration_events: st.frustration_count || 0, score: st.session_score || 100, _live: true
+  };
+}
+
+async function loadData() {
+  const [s, c, h, cfg] = await Promise.all([
+    fetchJSON('state.json'), fetchJSON('creature.json'),
+    fetchJSONL('history.jsonl'), fetchJSON('config.json')
+  ]);
+  if (s) state = s; if (c) creature = c; if (cfg) config = cfg;
+  const completed = h || [];
+  const live = synthesizeLiveSession(state);
+  history = live ? [...completed, live] : completed;
+  render();
+}
+
+// === RENDER ===
+function render() {
+  renderTopBar(); renderCreature(); renderEvo();
+  renderTimeline(); renderTerrain(); renderSessions();
+  renderShop(); renderLegends(); renderWellnessTips();
+}
+
+function renderTopBar() {
+  const now = Math.floor(Date.now() / 1000);
+  const durMin = state.session_start ? Math.floor((now - state.session_start) / 60) : 0;
+  document.getElementById('session-stats').innerHTML = `
+    <span><b>${fmtDur(durMin)}</b></span>
+    <span><b>${state.prompt_count || 0}</b> prompts</span>
+    <span>☕ <b>${state.break_count || 0}</b> breaks</span>`;
+
+  let badges = '';
+  const hs = state.healthy_streak || 0, os = state.overwork_streak || 0;
+  if (hs >= 3) badges += `<div class="tb-badge good">💚 ${hs}d streak</div>`;
+  if (os >= 3) badges += `<div class="tb-badge bad">🔥 ${os}d overwork</div>`;
+  if (creature.shield_active) badges += `<div class="tb-badge warn">🛡️ Shield</div>`;
+  badges += `<div class="theme-btn" onclick="toggleTheme(this)">🌙</div>`;
+  document.getElementById('badges').innerHTML = badges;
+}
+
+function toggleTheme(btn) {
+  document.body.classList.toggle('light');
+  btn.textContent = document.body.classList.contains('light') ? '☀️' : '🌙';
+}
+
+function renderCreature() {
+  const hp = creature.hp || 50, species = creature.species, stage = creature.stage || 0;
+  const name = creature.name || 'Unnamed';
+  const ghost = creature.ghost_sessions_remaining || 0;
+  const emoji = ghost > 0 ? '👻' : species ? getEmoji(species, stage) : '🥚';
+  const mood = getMood(hp);
+  const title = ghost > 0 ? `Ghost · ${ghost} sessions to rebirth` : species ? `${STAGE_NAMES[stage]} ${species.charAt(0).toUpperCase() + species.slice(1)} · ${mood.charAt(0).toUpperCase() + mood.slice(1)}` : 'Waiting to hatch...';
+  const hpOffset = 440 - (440 * (hp / 100));
+  const vel = state.peak_velocity || 0;
+  const score = state.session_score || 100;
+
+  document.getElementById('creature-card').innerHTML = `
+    <div class="cc-hero">
+      <div class="cc-ambient"><div class="cc-orb a"></div><div class="cc-orb b"></div></div>
+      <div class="creature-wrap">
+        <div class="c-ring r1"></div><div class="c-ring r2"></div>
+        <svg viewBox="0 0 200 200">
+          <defs><linearGradient id="hpG" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#ff4444"/><stop offset="40%" stop-color="#ffcc44"/><stop offset="100%" stop-color="#4aff8a"/></linearGradient></defs>
+          <circle class="hp-track" cx="100" cy="100" r="96"/>
+          <circle class="hp-fill" cx="100" cy="100" r="96" style="stroke-dashoffset:${hpOffset}"/>
+        </svg>
+        <div class="c-emoji">${emoji}</div>
+      </div>
+      <div class="c-name">${ghost > 0 ? 'GHOST' : name.toUpperCase()}</div>
+      <div class="c-title">${title}</div>
+    </div>
+    <div class="cc-divider"></div>
+    <div class="cc-hp">
+      <div class="hp-bar-wrap">
+        <div class="hp-outer"><div class="hp-inner" style="width:${hp}%"></div></div>
+        <div class="hp-text">Health Points</div>
+      </div>
+      <div class="hp-val">${hp}<small>/100</small></div>
+    </div>
+    <div class="cc-divider"></div>
+    <div class="cc-stats">
+      <div class="sr-item"><div class="sr-val green">${score}</div><div class="sr-label">Score</div></div>
+      <div class="sr-item"><div class="sr-val purple">${creature.coins || 0}💎</div><div class="sr-label">Coins</div></div>
+      <div class="sr-item"><div class="sr-val blue">${creature.xp || 0}</div><div class="sr-label">XP</div></div>
+      <div class="sr-item"><div class="sr-val yellow">⚡${vel}</div><div class="sr-label">Vel</div></div>
+    </div>`;
+}
+
+function renderEvo() {
+  const stage = creature.stage || 0, species = creature.species || 'dragon', xp = creature.xp || 0;
+  const el = document.getElementById('evo-path');
+  let html = '';
+  for (let i = 0; i < 5; i++) {
+    if (i > 0) html += `<div class="evo-line ${i <= stage ? 'done' : ''}"></div>`;
+    const cls = i < stage ? 'done' : i === stage ? 'now' : '';
+    const emoji = getEmoji(species, i);
+    let tip = '';
+    if (i < stage) tip = `<strong>${STAGE_NAMES[i]}</strong><br>Completed<br>${XP_THRESHOLDS[i]} XP`;
+    else if (i === stage) tip = `<strong>${STAGE_NAMES[i]}</strong> (current)<br>${xp} / ${XP_THRESHOLDS[Math.min(i + 1, 4)]} XP`;
+    else tip = `<strong>${STAGE_NAMES[i]}</strong><br>🔒 ${XP_THRESHOLDS[i]} XP required`;
+    html += `<div class="evo-n ${cls}"><div class="evo-tip">${tip}</div><div class="evo-e">${emoji}</div><div class="evo-l">${STAGE_NAMES[i]}</div></div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderTimeline() {
+  const el = document.getElementById('timeline'); el.innerHTML = '';
+  const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const byDate = {};
+  history.forEach(h => {
+    if (!byDate[h.date]) byDate[h.date] = { score: 0, dur: 0, prompts: 0, breaks: 0, count: 0 };
+    const d = byDate[h.date];
+    d.score = Math.max(d.score, h.score || 0); d.dur += h.duration_min || 0;
+    d.prompts += h.prompts || 0; d.breaks += h.breaks || 0; d.count++;
+  });
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const dayLabel = dayNames[d.getDay()];
+    const data = byDate[dateStr] || { score: 0, dur: 0, prompts: 0, breaks: 0 };
+    const h = data.score || 2;
+    const c = scoreColor(data.score);
+    const tip = data.score > 0
+      ? `<strong>${label}</strong><br>Score: ${data.score} · ${fmtDur(data.dur)}<br>${data.prompts}p · ${data.breaks} breaks`
+      : `<strong>${label}</strong><br>No session`;
+    const div = document.createElement('div'); div.className = 'tl-d';
+    div.innerHTML = `<div class="tl-tip">${tip}</div><div class="tl-score">${data.score || '-'}</div><div class="tl-bar"><div class="tl-fill" style="height:${h}%;background:${c}"></div></div><div class="tl-label">${dayLabel}</div>`;
+    el.appendChild(div);
+  }
+}
+
+function renderTerrain() {
+  const el = document.getElementById('terrain');
+  const byDate = {};
+  history.forEach(h => { if (!byDate[h.date]) byDate[h.date] = { vel: 0, score: 0 }; byDate[h.date].vel = Math.max(byDate[h.date].vel, h.peak_velocity || 0); byDate[h.date].score = Math.max(byDate[h.date].score, h.score || 0); });
+  const days = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const ds = d.toISOString().split('T')[0];
+    const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    days.push({ date: ds, label, ...(byDate[ds] || { vel: 0, score: 0 }) });
+  }
+  const w = 600, h = 90, base = h - 5, maxVel = Math.max(25, ...days.map(d => d.vel));
+  const points = days.map((d, i) => ({
+    x: (i / (days.length - 1)) * w,
+    y: base - (d.vel / maxVel) * (h - 15),
+    vel: d.vel, score: d.score, label: d.label
+  }));
+  let path = `M0,${base}`;
+  points.forEach((p, i) => {
+    if (i === 0) path += ` L${p.x},${p.y}`;
+    else { const prev = points[i - 1]; const cpx = (prev.x + p.x) / 2; path += ` C${cpx},${prev.y} ${cpx},${p.y} ${p.x},${p.y}`; }
+  });
+  path += ` L${w},${base} Z`;
+
+  let zones = '';
+  points.forEach(p => {
+    const vc = p.vel >= 20 ? 'var(--red)' : p.vel >= 15 ? 'var(--yellow)' : 'var(--green)';
+    zones += `<div class="trn-z"><div class="trn-t"><span style="color:var(--dim)">${p.label}</span><br><span style="color:${vc}">⚡${p.vel} · ${p.score}</span></div></div>`;
+  });
+
+  el.innerHTML = `
+    <div class="trn-zones">${zones}</div>
+    <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      <defs><linearGradient id="gG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--green)"/><stop offset="100%" stop-color="transparent"/></linearGradient></defs>
+      <rect width="${w}" height="${h}" fill="var(--terrain-bg)"/>
+      <path fill="url(#gG)" d="${path}" opacity="0.4"/>
+    </svg>`;
+}
+
+function renderSessions() {
+  const el = document.getElementById('sessions-body');
+  const recent = [...history].reverse().slice(0, 7);
+  el.innerHTML = recent.map(s => {
+    const live = s._live;
+    const liveTag = live ? ' <span style="color:var(--green);font-size:0.8em">● LIVE</span>' : '';
+    return `<tr${live ? ' style="background:rgba(74,255,138,0.03)"' : ''}>
+      <td>${s.date}${liveTag}</td><td>${fmtDur(s.duration_min)}</td><td>${s.prompts}</td><td>${s.breaks}</td>
+      <td style="color:${scoreColor(s.score || 0)}">${s.score || 0}</td><td>${s.peak_velocity || 0}</td>
+    </tr>`;
+  }).join('');
+}
+
+// === SHOP ===
+function renderShop() {
+  const coins = creature.coins || 0;
+  const ghost = creature.ghost_sessions_remaining || 0;
+  document.getElementById('shop-bal').textContent = `${coins} 💎`;
+
+  const items = [
+    { action: 'feed', icon: '🍖', name: 'Feed', desc: 'Restore 20 HP', price: 15, disabled: coins < 15 },
+    { action: 'shield', icon: '🛡️', name: 'Shield', desc: 'Block 1 bad session', price: 30, disabled: coins < 30 || creature.shield_active },
+    { action: 'revive', icon: '✨', name: 'Revive', desc: 'Skip ghost phase', price: 50, disabled: coins < 50 || ghost <= 0 },
+    { action: 'name', icon: '📛', name: 'Name', desc: 'Name your creature', price: 10, disabled: coins < 10 },
+  ];
+  document.getElementById('shop-grid').innerHTML = items.map(it =>
+    `<div class="shop-card ${it.disabled ? 'disabled' : ''}" onclick="shopAction('${it.action}')">
+      <div class="shop-icon">${it.icon}</div>
+      <div class="shop-info"><div class="shop-name">${it.name}</div><div class="shop-desc">${it.desc}</div></div>
+      <div class="shop-price">${it.price} 💎</div>
+    </div>`
+  ).join('');
+}
+
+async function shopAction(action) {
+  const resultEl = document.getElementById('shop-result');
+  let payload = {};
+  if (action === 'name') {
+    const name = prompt('Name your creature:');
+    if (!name || !name.trim()) return;
+    payload = { name: name.trim() };
+  }
+  try {
+    const r = await fetch('/api/shop/' + action, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    if (data.ok) {
+      resultEl.className = 'shop-result success';
+      const msgs = { fed: '🍖 Creature fed! +20 HP', shielded: '🛡️ Shield activated!', revived: '✨ Creature revived!', named: `📛 Named: ${data.name}` };
+      resultEl.textContent = msgs[data.action] || 'Done!';
+      await loadData(); // Refresh
+    } else {
+      resultEl.className = 'shop-result error';
+      resultEl.textContent = data.error || 'Failed';
+    }
+  } catch (e) {
+    resultEl.className = 'shop-result error';
+    resultEl.textContent = 'Server not available — run: python3 web/server.py';
+  }
+  setTimeout(() => { resultEl.className = 'shop-result'; }, 3000);
+}
+
+function renderLegends() {
+  const legends = creature.hall_of_legends || [];
+  document.getElementById('leg-count').textContent = `${legends.length} creature${legends.length !== 1 ? 's' : ''} remembered`;
+  const el = document.getElementById('leg-list');
+  if (legends.length === 0) { el.innerHTML = '<div style="text-align:center;color:var(--dim);padding:20px;opacity:0.4">No fallen creatures yet.</div>'; return; }
+  el.innerHTML = legends.map((l, i) => `
+    <div class="leg-card">
+      <div class="leg-rank">#${i + 1}</div><div class="leg-emoji">${l.emoji || '❓'}</div>
+      <div class="leg-body"><div class="leg-name">${l.name || 'Unnamed'}</div><div class="leg-species">${l.stage || '?'} ${l.species || '?'} · ${l.days_lived || '?'} days</div>
+      <div class="leg-stats-row"><span class="leg-tag xp">${l.xp || 0} XP</span><span class="leg-tag saves">${l.near_deaths || 0} saves</span></div></div>
+      <div class="leg-dates">${l.born || '?'} – ${l.died || '?'}</div>
+    </div>`).join('');
+}
+
+// === BREATHING EXERCISE ===
+const PATTERNS = {
+  box:      { name: 'Box Breathing',  phases: [{n:'Inhale',d:4},{n:'Hold',d:4},{n:'Exhale',d:4},{n:'Hold',d:4}] },
+  relax:    { name: '4-7-8 Relaxing', phases: [{n:'Inhale',d:4},{n:'Hold',d:7},{n:'Exhale',d:8}] },
+  energize: { name: 'Energize',       phases: [{n:'Inhale',d:2},{n:'Exhale',d:2}] },
+};
+
+let breatheState = { running: false, pattern: 'box', phase: 0, tick: 0, cycles: 0, startTime: 0, interval: null };
+
+document.querySelectorAll('.breathe-pat').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (breatheState.running) return;
+    document.querySelectorAll('.breathe-pat').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    breatheState.pattern = btn.dataset.pattern;
+  });
+});
+
+document.getElementById('breathe-start').addEventListener('click', startBreathing);
+document.getElementById('breathe-stop').addEventListener('click', stopBreathing);
+
+function startBreathing() {
+  const pat = PATTERNS[breatheState.pattern];
+  breatheState = { running: true, pattern: breatheState.pattern, phase: 0, tick: pat.phases[0].d, cycles: 0, startTime: Date.now(), interval: null };
+  document.getElementById('breathe-start').style.display = 'none';
+  document.getElementById('breathe-stop').style.display = '';
+  document.getElementById('breathe-ring').classList.add('active');
+  document.getElementById('breathe-circle').classList.add('active');
+  updateBreathUI();
+  breatheState.interval = setInterval(breatheTick, 1000);
+}
+
+function stopBreathing() {
+  breatheState.running = false;
+  clearInterval(breatheState.interval);
+  document.getElementById('breathe-start').style.display = '';
+  document.getElementById('breathe-stop').style.display = 'none';
+  document.getElementById('breathe-ring').classList.remove('active');
+  document.getElementById('breathe-circle').classList.remove('active');
+  document.getElementById('breathe-phase').textContent = 'Ready';
+  document.getElementById('breathe-timer').textContent = '0:00';
+  document.getElementById('breathe-circle').style.width = '40%';
+  document.getElementById('breathe-circle').style.height = '40%';
+}
+
+function breatheTick() {
+  if (!breatheState.running) return;
+  const pat = PATTERNS[breatheState.pattern];
+  breatheState.tick--;
+
+  if (breatheState.tick <= 0) {
+    breatheState.phase++;
+    if (breatheState.phase >= pat.phases.length) {
+      breatheState.phase = 0;
+      breatheState.cycles++;
+    }
+    breatheState.tick = pat.phases[breatheState.phase].d;
+  }
+  updateBreathUI();
+}
+
+function updateBreathUI() {
+  const pat = PATTERNS[breatheState.pattern];
+  const phase = pat.phases[breatheState.phase];
+  const progress = 1 - (breatheState.tick / phase.d);
+  document.getElementById('breathe-phase').textContent = phase.n;
+  document.getElementById('breathe-timer').textContent = breatheState.tick;
+  document.getElementById('breathe-cycles').textContent = breatheState.cycles;
+
+  // Elapsed
+  const elapsed = Math.floor((Date.now() - breatheState.startTime) / 1000);
+  const em = Math.floor(elapsed / 60), es = elapsed % 60;
+  document.getElementById('breathe-elapsed').textContent = `${em}:${String(es).padStart(2, '0')}`;
+
+  // Animate circle size based on phase
+  const circle = document.getElementById('breathe-circle');
+  if (phase.n === 'Inhale') {
+    const size = 40 + progress * 45;
+    circle.style.width = size + '%'; circle.style.height = size + '%';
+  } else if (phase.n === 'Exhale') {
+    const size = 85 - progress * 45;
+    circle.style.width = size + '%'; circle.style.height = size + '%';
+  }
+  // Hold phases keep current size
+}
+
+// === WELLNESS TIPS ===
+const TIPS = [
+  '💧 Hydrate — drink water every 30 min',
+  '👀 20-20-20 — look 20ft away for 20 sec every 20 min',
+  '🧘 Roll your shoulders back 5 times',
+  '🚶 Stand up and stretch every hour',
+  '🌬️ 3 deep breaths reset your nervous system',
+  '😴 8 hours of sleep > 2 hours of debugging',
+  '🍎 Eat real food, not just caffeine',
+  '📱 Screen break: look at something analog',
+  '✋ Wrist circles prevent RSI',
+  '🧠 Task-switch: a new problem can unblock the old one',
+];
+
+function renderWellnessTips() {
+  const el = document.getElementById('wellness-tips');
+  // Show 3 random tips
+  const shuffled = [...TIPS].sort(() => Math.random() - 0.5).slice(0, 3);
+  el.innerHTML = shuffled.map(t => `<div class="wellness-tip">${t}</div>`).join('');
+}
+
+// === SETTINGS ===
+function loadConfigUI() {
+  const c = config;
+  const t = c.nudge_thresholds_min || [90, 120, 180];
+  document.getElementById('cfg-t1').value = t[0] || 90;
+  document.getElementById('cfg-t2').value = t[1] || 120;
+  document.getElementById('cfg-t3').value = t[2] || 180;
+  document.getElementById('cfg-cooldown').value = c.nudge_cooldown_min ?? 15;
+  document.getElementById('cfg-vel').value = c.velocity_threshold ?? 15;
+  document.getElementById('cfg-frust').value = c.frustration_threshold ?? 20;
+  document.getElementById('cfg-density').value = c.prompt_density_threshold ?? 20;
+  document.getElementById('cfg-streak').value = c.streak_alert_days ?? 3;
+  document.getElementById('cfg-offstart').value = c.off_hours_start ?? 23;
+  document.getElementById('cfg-offend').value = c.off_hours_end ?? 7;
+  document.getElementById('cfg-offmult').value = c.off_hours_multiplier ?? 0.67;
+  document.getElementById('cfg-wkndmult').value = c.weekend_multiplier ?? 0.75;
+  document.getElementById('cfg-nudge').checked = c.nudge_system_message !== false;
+  document.getElementById('cfg-adaptive').checked = c.adaptive_thresholds !== false;
+  document.getElementById('cfg-variety').checked = c.message_variety !== false;
+  document.getElementById('cfg-breakgap').value = c.break_gap_min ?? 5;
+  document.getElementById('cfg-sessiongap').value = c.session_gap_min ?? 15;
+  document.getElementById('cfg-retention').value = c.history_retention_days ?? 14;
+}
+
+async function saveConfig() {
+  const payload = {
+    nudge_thresholds_min: [
+      parseInt(document.getElementById('cfg-t1').value) || 90,
+      parseInt(document.getElementById('cfg-t2').value) || 120,
+      parseInt(document.getElementById('cfg-t3').value) || 180,
+    ],
+    nudge_cooldown_min: parseInt(document.getElementById('cfg-cooldown').value) || 15,
+    velocity_threshold: parseInt(document.getElementById('cfg-vel').value) || 15,
+    frustration_threshold: parseInt(document.getElementById('cfg-frust').value) || 20,
+    prompt_density_threshold: parseInt(document.getElementById('cfg-density').value) || 20,
+    streak_alert_days: parseInt(document.getElementById('cfg-streak').value) || 3,
+    off_hours_start: parseInt(document.getElementById('cfg-offstart').value) || 23,
+    off_hours_end: parseInt(document.getElementById('cfg-offend').value) || 7,
+    off_hours_multiplier: parseFloat(document.getElementById('cfg-offmult').value) || 0.67,
+    weekend_multiplier: parseFloat(document.getElementById('cfg-wkndmult').value) || 0.75,
+    nudge_system_message: document.getElementById('cfg-nudge').checked,
+    adaptive_thresholds: document.getElementById('cfg-adaptive').checked,
+    message_variety: document.getElementById('cfg-variety').checked,
+    break_gap_min: parseInt(document.getElementById('cfg-breakgap').value) || 5,
+    session_gap_min: parseInt(document.getElementById('cfg-sessiongap').value) || 15,
+    history_retention_days: parseInt(document.getElementById('cfg-retention').value) || 14,
+  };
+  try {
+    const r = await fetch('/api/config', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    if (data.ok) {
+      config = data.config;
+      const status = document.getElementById('save-status');
+      status.classList.add('show');
+      setTimeout(() => status.classList.remove('show'), 2000);
+    }
+  } catch (e) {
+    alert('Server not available — run: python3 web/server.py');
+  }
+}
+
+// === INIT ===
+loadData();
+setInterval(loadData, 3000);
+// Load config into settings after first data fetch
+setTimeout(loadConfigUI, 500);
+</script>
+</body>
+</html>

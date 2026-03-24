@@ -2,4 +2,10 @@ state.json
 history.jsonl
 config.json
 creature.json
+breath.db
+breath.db-wal
+breath.db-shm
 *.tmp
+web/*.json
+web/*.jsonl
+.superpowers/
